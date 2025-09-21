@@ -10,7 +10,7 @@ Run the following one-liners to download and execute each script.
 
 ### 1. Bootstrap the Server
 ```bash
-wget -O Bootstrap-Webhook.sh "https://raw.githubusercontent.com/0nec1ick/Webhook/refs/heads/main/Bootstrap-Webhook.sh" && chmod +x Bootstrap-Webhook.sh && sudo -E ./Bootstrap-Webhook.sh
+wget -P /root -N --no-check-certificate "https://raw.githubusercontent.com/0nec1ick/Webhook/refs/heads/main/Bootstrap-Webhook.sh" && chmod 700 /root/Bootstrap-Webhook.sh && /root/Bootstrap-Webhook.sh
 ```
 
 **What it does:**
@@ -26,7 +26,7 @@ wget -O Bootstrap-Webhook.sh "https://raw.githubusercontent.com/0nec1ick/Webhook
 
 ### 2. Provision Helper (Interactive Setup)
 ```bash
-wget -O provision-webhook-helper.sh "https://raw.githubusercontent.com/0nec1ick/Webhook/refs/heads/main/provision-webhook-helper.sh" && chmod +x provision-webhook-helper.sh && sudo -E ./provision-webhook-helper.sh
+wget -P /root -N --no-check-certificate "https://raw.githubusercontent.com/0nec1ick/Webhook/refs/heads/main/provision-webhook-helper.sh" && chmod 700 /root/provision-webhook-helper.sh && /root/provision-webhook-helper.sh
 ```
 
 **What it does:**
@@ -40,7 +40,7 @@ wget -O provision-webhook-helper.sh "https://raw.githubusercontent.com/0nec1ick/
 
 ### 3. Verify Setup
 ```bash
-wget -O verify-webhook-setup.sh "https://raw.githubusercontent.com/0nec1ick/Webhook/refs/heads/main/verify-webhook-setup.sh" && chmod +x verify-webhook-setup.sh && sudo -E ./verify-webhook-setup.sh
+wget -P /root -N --no-check-certificate "https://raw.githubusercontent.com/0nec1ick/Webhook/refs/heads/main/verify-webhook-setup.sh" && chmod 700 /root/verify-webhook-setup.sh && /root/verify-webhook-setup.sh
 ```
 
 **What it does:**
