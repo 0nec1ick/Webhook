@@ -28,6 +28,7 @@ if [[ "$(uname -s)" != "Linux" ]]; then
 fi
 
 if [[ -r /etc/os-release ]]; then
+  # shellcheck disable=SC1091
   source /etc/os-release
   OS_ID="${ID:-}"
 else
@@ -41,9 +42,11 @@ case "$OS_ID" in
     ;;
 esac
 
+# Ensure noninteractive apt to avoid tzdata prompts etc.
 export DEBIAN_FRONTEND=noninteractive
 APT_GET="sudo apt-get -y -o Dpkg::Options::=--force-confnew -o Dpkg::Options::=--force-confdef"
 
+# Detect real user for PM2 startup
 RUN_USER="$(logname 2>/dev/null || echo "${SUDO_USER:-$(whoami)}")"
 RUN_HOME="$(getent passwd "$RUN_USER" | cut -d: -f6 2>/dev/null || echo "$HOME")"
 
@@ -81,6 +84,7 @@ fi
 # Node.js + npm + PM2
 # --------------------
 echo "==> Installing Node.js ${NODE_MAJOR}.x..."
+# Nodesource setup
 curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | sudo -E bash -
 $APT_GET install nodejs
 
@@ -93,6 +97,7 @@ sudo npm i -g pm2
 pm2 -v
 
 echo "==> Enabling PM2 startup for user: ${RUN_USER}"
+# Ensure PATH has /usr/bin for systemd environment
 sudo env PATH="$PATH:/usr/bin" pm2 startup systemd -u "${RUN_USER}" --hp "${RUN_HOME}" || true
 
 # --------------------
