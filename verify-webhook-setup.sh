@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # verify-webhook-setup.sh
 # End-to-end verifier for Node + PM2 + Nginx + SSL (certbot) + Telegram webhook
-# Recommmended to run with sudo.
+# Recommended to run with sudo.
 set -euo pipefail
 
 # ========== Colors ==========
@@ -20,14 +20,15 @@ check_cmd(){
   else
     fail "Command '${cmd}' is NOT installed"
     case "$cmd" in
-      node) echo "  Hint: curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - && sudo apt install -y nodejs";;
-      npm)  echo "  Hint: npm comes with Node.js";;
-      pm2)  echo "  Hint: sudo npm i -g pm2";;
+      node)  echo "  Hint: curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR:-18}.x | sudo -E bash - && sudo apt install -y nodejs";;
+      npm)   echo "  Hint: npm comes with Node.js";;
+      pm2)   echo "  Hint: sudo npm i -g pm2";;
       nginx) echo "  Hint: sudo apt install -y nginx";;
       certbot) echo "  Hint: sudo apt install -y certbot python3-certbot-nginx";;
-      jq)   echo "  Hint (optional): sudo apt install -y jq";;
-      curl) echo "  Hint: sudo apt install -y curl";;
-      ss)   echo "  Hint: sudo apt install -y iproute2";;
+      jq)    echo "  Hint (optional): sudo apt install -y jq";;
+      curl)  echo "  Hint: sudo apt install -y curl";;
+      ss)    echo "  Hint: sudo apt install -y iproute2";;
+      netstat) echo "  Hint: sudo apt install -y net-tools";;
     esac
   fi
 }
@@ -45,13 +46,15 @@ info "1) CLI availability"
 for cmd in node npm pm2 nginx certbot ufw curl ss jq; do
   check_cmd "$cmd"
 done
+# Optional fallback note for netstat
+has_cmd ss || check_cmd netstat
 echo
 
 # 2) Versions
 info "2) Versions"
-has_cmd node && node -v | xargs -I{} ok "Node: {}"
-has_cmd npm  && npm -v  | xargs -I{} ok "npm: {}"
-has_cmd pm2  && pm2 -v  | xargs -I{} ok "PM2: {}"
+has_cmd node  && node -v | xargs -I{} ok "Node: {}"
+has_cmd npm   && npm -v  | xargs -I{} ok "npm: {}"
+has_cmd pm2   && pm2 -v  | xargs -I{} ok "PM2: {}"
 has_cmd nginx && nginx -v 2>&1 | head -n1 | xargs -I{} ok "Nginx: {}"
 echo
 
@@ -73,16 +76,18 @@ echo
 # 4) Ports
 info "4) Listening ports (80, 443, and app port)"
 if has_cmd ss; then
-  ss -tulpn | egrep ':80 |:443 ' || true
+  ss -tulpn | grep -E ':(80|443)\b' || true
+elif has_cmd netstat; then
+  netstat -tulpn 2>/dev/null | grep -E ':(80|443)\b' || true
 else
-  warn "'ss' not found"
+  warn "Neither 'ss' nor 'netstat' found"
 fi
 echo
 
 # 5) Nginx config test
 info "5) Nginx configuration test"
 if has_cmd nginx; then
-  if nginx -t 2>&1 | tee /tmp/nginx_test_out; then
+  if nginx -t 2>&1 | tee /tmp/nginx_test_out >/dev/null; then
     ok "nginx -t returned OK"
   else
     fail "nginx -t failed. Output:"
@@ -116,7 +121,7 @@ else
 fi
 echo
 
-# 7) App directory & .env
+# 7) App directory & .env (masked output)
 info "7) App directory and .env"
 read -r -p "  Enter app directory (e.g. /var/www/webhook) [/var/www/webhook]: " APP_DIR
 APP_DIR="${APP_DIR:-/var/www/webhook}"
@@ -124,8 +129,18 @@ if [ -d "${APP_DIR}" ]; then
   ok "App directory exists: ${APP_DIR}"
   if [ -f "${APP_DIR}/.env" ]; then
     ok "Found .env at ${APP_DIR}/.env"
-    echo "  Showing .env (first 200 lines):"
-    sed -n '1,200p' "${APP_DIR}/.env" | sed -e 's/^/    /'
+    echo "  Showing masked .env (first 200 lines):"
+    awk -F'=' '{
+      if (NF>1) {
+        key=$1; val=substr($0,length($1)+2);
+        n=length(val);
+        if (n>6) printf "    %s=%s****%s\n", key, substr(val,1,2), substr(val,n-1,2);
+        else if (n>0) printf "    %s=****\n", key;
+        else printf "    %s=\n", key;
+      } else {
+        print "    "$0;
+      }
+    }' "${APP_DIR}/.env" | sed -n '1,200p'
   else
     warn "No .env found at ${APP_DIR}"
   fi
@@ -200,12 +215,12 @@ if [ -n "${TG_TOKEN}" ]; then
   if has_cmd curl; then
     echo "  Fetching getWebhookInfo..."
     set +e
-    OUT=$(curl -sS "https://api.telegram.org/bot${TG_TOKEN}/getWebhookInfo" || true)
+    OUT="$(curl -sS "https://api.telegram.org/bot${TG_TOKEN}/getWebhookInfo" || true)"
     set -e
     if [ -z "${OUT}" ]; then
       warn "Telegram API returned empty/failed. Check internet connectivity or token validity."
     else
-      if has_cmd jq; then echo "$OUT" | jq .; else echo "$OUT"; fi
+      if has_cmd jq; then echo "${OUT}" | jq .; else echo "${OUT}"; fi
       ok "getWebhookInfo returned output (see above)."
     fi
   else
@@ -232,7 +247,7 @@ echo
 # 13) UFW
 info "13) UFW firewall"
 if has_cmd ufw; then
-  sudo ufw status verbose | sed -n '1,200p'
+  sudo ufw status verbose 2>/dev/null | sed -n '1,200p' || warn "ufw status not available"
 else
   warn "ufw not installed"
 fi
